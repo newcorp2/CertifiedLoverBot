@@ -20,6 +20,19 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
         autoRegisterWithPeriodicRunner();
     }
 
+    //the timer
+
+    Timer timer = new Timer();
+
+    public void startTimer() { timer.start(); }
+
+    public boolean pulseTimer() {
+        while (timer.getElapsedTime() <= 1000) { output = 0.25; }
+        return true;
+    }
+
+    public void stopTimer() { timer.stop(); }
+
     @Override
     public void onPeriodicAsync() {
         output = getAxisOutput();
@@ -33,9 +46,9 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
                 }
                 break;
             case PULSE:
-                Timer boyuan = new Timer();
-
-
+                startTimer();
+                while (!pulseTimer() == true) { pulseTimer(); }
+                stopTimer();
                 break;
             case HALF_POWER:
                 output = 0.5;
@@ -43,6 +56,8 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
             case STOP:
                 output = 0;
                 break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + currentState);
         }
 
         if (output > 0.8) {
