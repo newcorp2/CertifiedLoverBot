@@ -1,13 +1,15 @@
 plugins {
     id "java"
     id "idea"
-    id "edu.wpi.first.GradleRIO" version "2020.2.2"
+    id "edu.wpi.first.GradleRIO" version "2022.3.1"
 }
+
 
 group 'com.team2073'
 version '1.0-SNAPSHOT'
 
-sourceCompatibility = 1.8
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
 
 repositories {
     mavenLocal()
@@ -57,60 +59,80 @@ ext {
 
 deploy {
     targets {
-        roboRIO("roborio") {
+        roborio(getTargetTypeClass('RoboRIO')) {
             // Team number is loaded either from the .wpilib/wpilib_preferences.json
             // or from command line. If not found an exception will be thrown.
             // You can use getTeamOrDefault(team) instead of getTeamNumber if you
             // want to store a team number in this file.
             team = TEAM_NUMBER
+            debug = project.frc.getDebugOrDefault(false)
 
-        }
-    }
-    artifacts {
-        frcJavaArtifact('frcJava') {
-            targets << "roborio"
-            // Debug can be overridden by command line, for use with VSCode
-            debug = frc.getDebugOrDefault(DEBUG_MODE)
-        }
-        // Built in artifact to deploy arbitrary files to the roboRIO.
-        fileTreeArtifact('frcStaticFileDeploy') {
-            // The directory below is the local directory to deploy
-            files = fileTree(dir: 'src/main/deploy')
-            // Deploy to RoboRIO target, into /home/lvuser/deploy
-            targets << "roborio"
-            directory = '/home/lvuser/deploy'
+            artifacts {
+                // First part is artifact name, 2nd is artifact type
+                // getTargetTypeClass is a shortcut to get the class type using a string
+
+                frcJava(getArtifactTypeClass('FRCJavaArtifact')) {
+                }
+
+                // Static files artifact
+                frcStaticFileDeploy(getArtifactTypeClass('FileTreeArtifact')) {
+                    files = project.fileTree('src/main/deploy')
+                    directory = '/home/lvuser/deploy'
+                }
+            }
         }
     }
 }
+
+def deployArtifact = deploy.targets.roborio.artifacts.frcJava
+
 dependencies {
-    implementation wpi.deps.wpilib()
-    nativeZip wpi.deps.wpilibJni(wpi.platforms.roborio)
-    nativeDesktopZip wpi.deps.wpilibJni(wpi.platforms.desktop)
+    implementation wpi.java.deps.wpilib()
+    implementation wpi.java.vendor.java()
 
+    roborioDebug wpi.java.deps.wpilibJniDebug(wpi.platforms.roborio)
+    roborioDebug wpi.java.vendor.jniDebug(wpi.platforms.roborio)
 
-    implementation wpi.deps.vendor.java()
-    nativeZip wpi.deps.vendor.jni(wpi.platforms.roborio)
-    nativeDesktopZip wpi.deps.vendor.jni(wpi.platforms.desktop)
+    roborioRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.roborio)
+    roborioRelease wpi.java.vendor.jniRelease(wpi.platforms.roborio)
+
+    nativeDebug wpi.java.deps.wpilibJniDebug(wpi.platforms.desktop)
+    nativeDebug wpi.java.vendor.jniDebug(wpi.platforms.desktop)
+    simulationDebug wpi.sim.enableDebug()
+
+    nativeRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.desktop)
+    nativeRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
+    simulationRelease wpi.sim.enableRelease()
 
     // In Java for now, the argument must be false
-    simulation wpi.deps.sim.gui(wpi.platforms.desktop, false)
-    compile group: 'org.json', name: 'json', version: '20180813'
-    compile group: 'com.team2073', name: 'common-util', version: COMMON_VERSION
-    compile group: 'com.team2073', name: 'common-wpi-util', version: COMMON_VERSION
-    compile group: 'com.team2073', name: 'common-guice', version: COMMON_VERSION
-    compile group: 'com.opencsv', name: 'opencsv', version: '5.0'
+//    simulation wpi.java.deps.sim.gui(wpi.platforms.desktop, false)
+//    compile group: 'org.json', name: 'json', version: '20180813'
+    implementation group: 'org.json', name: 'json', version: '20210307'
+    implementation group: 'com.team2073', name: 'common-util', version: COMMON_VERSION
+    implementation group: 'com.team2073', name: 'common-wpi-util', version: COMMON_VERSION
+    implementation group: 'com.team2073', name: 'common-guice', version: COMMON_VERSION
+    implementation group: 'com.opencsv', name: 'opencsv', version: '5.0'
+    testImplementation group: 'com.team2073', name: 'common-wpi-simulation', version: COMMON_VERSION
+    testImplementation group: 'com.team2073', name: 'common-wpi-simulation-stubs', version: COMMON_VERSION
 
-    testCompile group: 'com.team2073', name: 'common-wpi-simulation', version: COMMON_VERSION
-    testCompile group: 'com.team2073', name: 'common-wpi-simulation-stubs', version: COMMON_VERSION
-
-    testImplementation 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.2'
 
 
 }
+
+
+
 wrapper {
-    gradleVersion = "6.0"
+    gradleVersion = "7.3.3"
 }
+
 jar {
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
     manifest edu.wpi.first.gradlerio.GradleRIOPlugin.javaManifest(ROBOT_MAIN_CLASS)
+
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
+
+deployArtifact.jarTask = jar
+wpi.java.configureExecutableTasks(jar)
+wpi.java.configureTestTasks(test)

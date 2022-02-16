@@ -11,27 +11,14 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
     private final ApplicationContext appCTX = ApplicationContext.getInstance();
     private final Joystick controller = appCTX.getController();
     private final CANSparkMax motor = appCTX.getMotor();
-
+    public static Timer timer = new Timer();
     private SimpleSubsystemState currentState  = SimpleSubsystemState.AXIS;
-
     private double output = 0;
+    private double cruiseOutput;
 
     public SimpleSubsystem () {
         autoRegisterWithPeriodicRunner();
     }
-
-    //the timer
-
-    Timer timer = new Timer();
-
-    public void startTimer() { timer.start(); }
-
-    public boolean pulseTimer() {
-        while (timer.getElapsedTime() <= 1000) { output = 0.25; }
-        return true;
-    }
-
-    public void stopTimer() { timer.stop(); }
 
     @Override
     public void onPeriodicAsync() {
@@ -39,16 +26,31 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
         switch (currentState) {
             case AXIS:
                 output = getAxisOutput();
-                if (controller.getRawAxis(2) > 0 && controller.getRawAxis(3) == 0 && -controller.getRawAxis(1) > 0) {
-                    output -= controller.getRawAxis(2);
-                } else if (controller.getRawAxis(3) > 0 && controller.getRawAxis(2) == 0 && -controller.getRawAxis(1) > 0) {
+                if (controller.getRawAxis(2) > 0 && controller.getRawAxis(3) == 0 && Math.abs(controller.getRawAxis(1)) > 0) {
+                    if ((output - controller.getRawAxis(2)) >= 0) {
+                        output -= controller.getRawAxis(2);
+                    } else {
+                        output = 0;
+                    }
+                } else if (Math.abs(controller.getRawAxis(3)) > 0 && Math.abs(controller.getRawAxis(2)) == 0 && Math.abs(controller.getRawAxis(1)) > 0) {
                     output += controller.getRawAxis(3);
                 }
                 break;
             case PULSE:
-                startTimer();
-                while (!pulseTimer() == true) { pulseTimer(); }
-                stopTimer();
+                double time = timer.getElapsedTime() / 1000;
+                if (time % 2 > 1) {output = 0.25;}
+                if (time % 2 < 1) {output = 0;}
+                break;
+            case CRUISE:
+                if (controller.getRawAxis(1) <= cruiseOutput) {
+                    output = cruiseOutput;
+                } else { output = controller.getRawAxis(2); }
+                break;
+            case CRUISE_SET:
+                cruiseOutput = output;
+                break;
+            case REVOLUTION:
+
                 break;
             case HALF_POWER:
                 output = 0.5;
@@ -56,8 +58,6 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
             case STOP:
                 output = 0;
                 break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + currentState);
         }
 
         if (output > 0.8) {
@@ -80,6 +80,9 @@ public class SimpleSubsystem implements AsyncPeriodicRunnable {
     public enum SimpleSubsystemState {
         AXIS,
         HALF_POWER,
+        CRUISE,
+        CRUISE_SET,
+        REVOLUTION,
         PULSE,
         STOP;
     }

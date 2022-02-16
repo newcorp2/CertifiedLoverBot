@@ -5,7 +5,9 @@ import com.revrobotics.CANSparkMaxLowLevel;
 import com.team2073.robot.Subsystems.SimpleSubsystem;
 import edu.wpi.first.wpilibj.Joystick;
 import com.team2073.robot.AppConstants.Ports.*;
+import com.revrobotics.CANSparkMaxLowLevel;
 
+import static com.revrobotics.CANSparkMaxLowLevel.MotorType.kBrushless;
 import static com.team2073.robot.AppConstants.Ports.JOYSTICK_PORT;
 import static com.team2073.robot.AppConstants.Ports.MOTOR_PORT;
 
@@ -25,7 +27,7 @@ public class ApplicationContext {
 
     public CANSparkMax getMotor() {
         if (motor == null) {
-            motor = new CANSparkMax (MOTOR_PORT, CANSparkMaxLowLevel.MotorType.kBrushless);
+            motor = new CANSparkMax (MOTOR_PORT, kBrushless);
         }
 
         return motor;
